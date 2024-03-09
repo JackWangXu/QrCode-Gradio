@@ -277,4 +277,5 @@ with gr.Blocks() as blocks:
     )
 
 blocks.queue(max_size=20,api_open=False)
+
 blocks.launch(share=bool(os.environ.get("SHARE", False)), show_api=False)
