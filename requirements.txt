@@ -1,0 +1,9 @@
+diffusers
+transformers
+accelerate
+torch
+xformers
+gradio
+Pillow
+qrcode
+gradio==4.8.0
