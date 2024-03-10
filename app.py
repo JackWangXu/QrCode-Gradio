@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 
 import torch
@@ -21,6 +22,72 @@ from diffusers import (
     HeunDiscreteScheduler,
     EulerDiscreteScheduler,
 )
+
+
+
+API_KEY = "o5mxxS7YRCjTF3S1ZOKqNLBb"
+SECRET_KEY = "Xw7tX3CNw3Nm1V4YOyFwpHhywypXjTBX"
+
+
+def call_wenxin_api(text):
+    url = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/yi_34b_chat?access_token=" + get_access_token()
+
+
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    # 序列化 JSON 请求体
+    json_payload = json.dumps({
+        "messages": [
+            {
+                "role": "user",
+                "content": text
+            }
+        ]
+    })
+
+    # 检查 JSON 序列化后的长度，并确保其为奇数
+    if len(json_payload) % 2 == 0:
+        # 在 JSON 字符串的末尾添加一个空格（或其他字符）
+        json_payload += " "
+
+        # 发送请求，这里直接使用 json_payload 而不是 payload
+    response = requests.post(url, headers=headers, data=json_payload)
+
+    # 输出响应内容
+    print(response.text)
+    return response.text  # 返回响应内容而不是response对象
+
+
+def get_access_token():
+    """
+    使用 AK，SK 生成鉴权签名（Access Token）
+    :return: access_token，或是None(如果错误)
+    """
+    url = "https://aip.baidubce.com/oauth/2.0/token"
+    params = {"grant_type": "client_credentials", "client_id": API_KEY, "client_secret": SECRET_KEY}
+    return str(requests.post(url, params=params).json().get("access_token"))
+
+
+def generate_prompt(name):
+    prompt_template = "假设你是提示词生成专家，请模仿下面的几个提示词：1.A sky view of a colorful lakes and rivers flowing through the desert  2.Bright sunshine coming through the cracks of a wet, cave wall of big rocks  3.Sky view of highly aesthetic, ancient greek thermal baths  in beautiful nature   每当我输入一个词语的时候 请帮我生成一段类似上面格式之一的英语提示词,要求长度不超过15个单词，每次只能生成一句话开头不能携带序号，我输入的是{}"
+    input_for_api = prompt_template.format(name)
+    print('-------开始准备调用接口')
+    # 假设call_wenxin_api函数返回的是一个JSON格式的字符串
+    response_str = call_wenxin_api(input_for_api)
+
+    # 解析JSON字符串为Python字典
+    response_dict = json.loads(response_str)
+
+    # 提取result字段的内容
+    result_content = response_dict.get('result', '未找到result字段')
+
+    # 打印提取到的内容
+    print(result_content)
+
+    # 返回提取到的内容
+    return result_content,result_content
 
 qrcode_generator = qrcode.QRCode(
     version=1,
@@ -148,7 +215,11 @@ with gr.Blocks() as blocks:
                     label="QR Code Image (Optional). Leave blank to automatically generate QR code",
                     type="pil",
                 )
-
+            fast_prompt = gr.Textbox(
+                label="快速提示词",
+                info="Prompt that guides the generation towards",
+            )
+            generate_btn = gr.Button("快速帮你生成提示语")  # 添加一个生成提示词的按钮
             prompt = gr.Textbox(
                 label="提示词语",
                 info="Prompt that guides the generation towards",
@@ -159,6 +230,16 @@ with gr.Blocks() as blocks:
             )
             use_qr_code_as_init_image = gr.Checkbox(label="Use QR code as init image", value=True, interactive=False, info="Whether init image should be QR code. Unclick to pass init image or generate init image with Stable Diffusion 2.1")
 
+
+            # 添加一个隐藏的输出组件，用于触发更新（这里不会在界面上显示）
+            dummy_output = gr.Textbox(visible=False)
+
+            # 设置按钮点击事件
+            generate_btn.click(
+                generate_prompt,
+                inputs=fast_prompt,
+                outputs=[fast_prompt, dummy_output]
+            )
             with gr.Accordion(label="Init Images (Optional)", open=False, visible=False) as init_image_acc:
                 init_image = gr.Image(label="Init Image (Optional). Leave blank to generate image with SD 2.1", type="pil")
 
